@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import './App.css'
 import { AuthPage } from './pages/AuthPage'
 import { DashboardPage } from './pages/DashboardPage'
+import { useSessionTimeout } from './utils/useSessionTimeout'
 
 const AUTH_STORAGE_KEY = 'auth_session'
 const THEME_STORAGE_KEY = 'ui_theme'
@@ -71,6 +72,12 @@ function App() {
     setUser(null)
     setView('login')
   }
+
+  // Manejar timeout de sesión (5 minutos sin actividad)
+  useSessionTimeout(user, () => {
+    console.warn('⏰ Sesión expirada por inactividad')
+    handleLogout()
+  })
 
   const toggleTheme = () => {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))
