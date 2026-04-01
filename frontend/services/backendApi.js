@@ -2,6 +2,9 @@ const jsonHeaders = {
   'Content-Type': 'application/json',
 }
 
+// Backend URL: en desarrollo usa localhost, en producción usa variable de entorno
+const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
+
 function wait(ms) {
   return new Promise((resolve) => {
     setTimeout(resolve, ms)
@@ -28,7 +31,7 @@ export async function fetchBackendStatus(forceMode = 'auto') {
   }
 
   try {
-    const response = await fetch('/backend-status')
+    const response = await fetch(`${backendUrl}/backend-status`)
     return parseJsonResponse(response)
   } catch {
     return {
@@ -66,7 +69,7 @@ export async function sendTelemetry(payload, forceMode = 'auto') {
   }
 
   try {
-    const response = await fetch('/api/telemetry', {
+    const response = await fetch(`${backendUrl}/api/telemetry`, {
       method: 'POST',
       headers: jsonHeaders,
       body: JSON.stringify(normalizedPayload),
