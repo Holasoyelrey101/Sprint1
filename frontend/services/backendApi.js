@@ -2,8 +2,18 @@ const jsonHeaders = {
   'Content-Type': 'application/json',
 }
 
-// Backend URL: en desarrollo usa localhost, en producción usa URL hardcodeada (mejora: usar variable de entorno)
-const backendUrl = import.meta.env.VITE_BACKEND_URL || (typeof window !== 'undefined' && window.location.hostname.includes('railway') ? 'https://backend-production-3697.up.railway.app' : 'http://localhost:8000')
+// Backend URL: detecta si es producción (Railway) o desarrollo (localhost)
+const backendUrl = (() => {
+  if (typeof window !== 'undefined') {
+    // En Railway: frontend es frontend-production-*.up.railway.app → backend es backend-production-3697.up.railway.app
+    if (window.location.hostname.includes('frontend-production')) {
+      return 'https://backend-production-3697.up.railway.app'
+    }
+    // En desarrollo: localhost
+    return 'http://localhost:8000'
+  }
+  return 'http://localhost:8000'
+})()
 
 function wait(ms) {
   return new Promise((resolve) => {
