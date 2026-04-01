@@ -33,7 +33,7 @@ async function parseJsonResponse(response) {
 }
 
 export async function loginUser(credentials) {
-  const response = await fetch(`${API_URL}/auth/login`, {
+  const response = await fetch(`${API_URL}/api/auth/login`, {
     method: 'POST',
     headers: jsonHeaders,
     body: JSON.stringify({
@@ -57,7 +57,7 @@ export async function loginUser(credentials) {
 }
 
 export async function registerUser(payload) {
-  const response = await fetch(`${API_URL}/auth/registro`, {
+  const response = await fetch(`${API_URL}/api/auth/registro`, {
     method: 'POST',
     headers: jsonHeaders,
     body: JSON.stringify({
