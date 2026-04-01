@@ -2,32 +2,6 @@ const jsonHeaders = {
   'Content-Type': 'application/json',
 }
 
-// Backend URL: detecta si es producción (Railway) o desarrollo (localhost)
-// En Railway, siempre usa la URL hardcodeada del backend production
-const getBackendUrl = () => {
-  if (typeof window !== 'undefined') {
-    const hostname = window.location.hostname
-    console.log('Current hostname:', hostname)
-    
-    // Si estamos en cualquier dominio railway y el hostname tiene "frontend", apunta al backend
-    if (hostname.includes('railway') && (hostname.includes('frontend') || hostname.includes('production'))) {
-      console.log('Detectado Railway: usando backend-production-3697.up.railway.app')
-      return 'https://backend-production-3697.up.railway.app'
-    }
-    
-    // En desarrollo: localhost
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      console.log('Detectado localhost: usando http://localhost:8000')
-      return 'http://localhost:8000'
-    }
-  }
-  
-  // Default a localhost si no se puede determinar
-  return 'http://localhost:8000'
-}
-
-const backendUrl = getBackendUrl()
-
 function wait(ms) {
   return new Promise((resolve) => {
     setTimeout(resolve, ms)
@@ -54,7 +28,7 @@ export async function fetchBackendStatus(forceMode = 'auto') {
   }
 
   try {
-    const response = await fetch(`${backendUrl}/backend-status`)
+    const response = await fetch('/backend-status')
     return parseJsonResponse(response)
   } catch {
     return {
@@ -92,7 +66,7 @@ export async function sendTelemetry(payload, forceMode = 'auto') {
   }
 
   try {
-    const response = await fetch(`${backendUrl}/api/telemetry`, {
+    const response = await fetch('/api/telemetry', {
       method: 'POST',
       headers: jsonHeaders,
       body: JSON.stringify(normalizedPayload),

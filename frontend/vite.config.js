@@ -10,11 +10,11 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:8000', //procurar siempre ocupar este puerto para el backend
+        target: 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
       '/backend-status': {
-        target: 'http://127.0.0.1:8000', //procurar siempre ocupar este puerto para el backend
+        target: 'http://127.0.0.1:8000',
         changeOrigin: true, 
         rewrite: () => '/',
       },
