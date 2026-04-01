@@ -3,17 +3,30 @@ const jsonHeaders = {
 }
 
 // Backend URL: detecta si es producción (Railway) o desarrollo (localhost)
-const backendUrl = (() => {
+// En Railway, siempre usa la URL hardcodeada del backend production
+const getBackendUrl = () => {
   if (typeof window !== 'undefined') {
-    // En Railway: frontend es frontend-production-*.up.railway.app → backend es backend-production-3697.up.railway.app
-    if (window.location.hostname.includes('frontend-production')) {
+    const hostname = window.location.hostname
+    console.log('Current hostname:', hostname)
+    
+    // Si estamos en cualquier dominio railway y el hostname tiene "frontend", apunta al backend
+    if (hostname.includes('railway') && (hostname.includes('frontend') || hostname.includes('production'))) {
+      console.log('Detectado Railway: usando backend-production-3697.up.railway.app')
       return 'https://backend-production-3697.up.railway.app'
     }
+    
     // En desarrollo: localhost
-    return 'http://localhost:8000'
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      console.log('Detectado localhost: usando http://localhost:8000')
+      return 'http://localhost:8000'
+    }
   }
+  
+  // Default a localhost si no se puede determinar
   return 'http://localhost:8000'
-})()
+}
+
+const backendUrl = getBackendUrl()
 
 function wait(ms) {
   return new Promise((resolve) => {
