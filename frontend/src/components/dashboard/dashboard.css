@@ -1,0 +1,240 @@
+/* ============================================================
+   SIDEBAR
+   ============================================================ */
+.sidebar {
+  background: var(--gradient-dark);
+  color: white;
+  padding: 28px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  box-shadow: 4px 0 24px rgba(10,35,24,0.18);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.sidebar__brand {
+  display: grid;
+  gap: 6px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.sidebar-eyebrow {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 700;
+  color: rgba(255,255,255,0.5);
+}
+
+.sidebar h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: white;
+  letter-spacing: -0.02em;
+}
+
+.sidebar h2 i {
+  color: var(--primary-light);
+  font-size: 18px;
+}
+
+/* NAV */
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+}
+
+.nav-item {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  text-align: left;
+  color: rgba(255,255,255,0.6);
+  padding: 11px 14px;
+  border-radius: var(--radius);
+  font-weight: 500;
+  font-size: 13.5px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+}
+
+.nav-item i {
+  font-size: 14px;
+  width: 18px;
+  text-align: center;
+  opacity: 0.85;
+}
+
+.nav-item:hover {
+  background: rgba(255,255,255,0.1);
+  color: white;
+}
+
+.nav-item.active {
+  background: rgba(255,255,255,0.16);
+  color: white;
+  font-weight: 700;
+}
+
+.nav-item.active::after {
+  content: '';
+  position: absolute;
+  right: 10px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary-light);
+}
+
+/* LOGOUT */
+.sidebar-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.secondary-btn {
+  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.06);
+  cursor: pointer;
+  padding: 11px 14px;
+  border-radius: var(--radius);
+  color: rgba(255,255,255,0.75);
+  font-weight: 600;
+  font-size: 13px;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.secondary-btn:hover {
+  background: rgba(255,255,255,0.12);
+  border-color: rgba(255,255,255,0.35);
+  color: white;
+}
+
+.secondary-btn--theme {
+  color: rgba(255,255,255,0.86);
+}
+
+/* ============================================================
+   SUMMARY CARDS
+   ============================================================ */
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.summary-card {
+  background: white;
+  padding: 18px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.summary-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--gradient-primary);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.summary-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+  border-color: var(--green-100, #d1f5e8);
+}
+
+.summary-card:hover::after { opacity: 1; }
+
+.summary-card span {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.summary-card strong {
+  display: block;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--heading);
+  letter-spacing: -0.03em;
+  margin-bottom: 6px;
+}
+
+.summary-card small {
+  display: block;
+  font-size: 12px;
+  color: var(--text-light);
+  line-height: 1.45;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 980px) {
+  .sidebar {
+    position: static;
+    height: auto;
+    padding: 20px;
+    gap: 16px;
+  }
+
+  .sidebar__brand { padding-bottom: 14px; }
+
+  .sidebar-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .nav-item {
+    flex: 1 1 auto;
+    min-width: 90px;
+    justify-content: center;
+    padding: 9px 12px;
+    font-size: 12px;
+  }
+
+  .nav-item.active::after { display: none; }
+
+  .summary-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+
+  .summary-card strong { font-size: 18px; }
+}
+
+@media (max-width: 640px) {
+  .sidebar { padding: 14px; gap: 12px; }
+  .sidebar h2 { font-size: 15px; }
+  .nav-item { font-size: 11px; padding: 8px 10px; }
+  .summary-card { padding: 14px 12px; }
+  .summary-card strong { font-size: 16px; }
+}

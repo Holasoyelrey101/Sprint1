@@ -1,0 +1,46 @@
+/* ===== TABS ===== */
+.tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 22px;
+  background: var(--slate-100, #f1f5f9);
+  padding: 5px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+}
+
+.tabs button {
+  border: none;
+  cursor: pointer;
+  padding: 12px 10px;
+  border-radius: var(--radius);
+  font-weight: 600;
+  font-size: 13.5px;
+  color: var(--text-light);
+  background: transparent;
+  transition: all 0.18s ease;
+}
+
+.tabs button.active {
+  background: #ffffff;
+  color: var(--heading);
+  box-shadow: var(--shadow-sm);
+}
+
+.tabs button:hover:not(.active) {
+  color: var(--heading);
+  background: rgba(255,255,255,0.6);
+}
+
+/* ===== EYEBROW (global reuse) ===== */
+.eyebrow {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  color: var(--primary);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}

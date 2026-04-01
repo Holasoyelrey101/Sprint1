@@ -1,0 +1,106 @@
+.register-form {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+
+.register-form > div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.register-form label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--heading);
+  letter-spacing: -0.01em;
+}
+
+.register-form input,
+.register-form select {
+  width: 100%;
+  padding: 11px 14px;
+  border-radius: var(--radius);
+  border: 1.5px solid var(--border);
+  background: var(--app-bg);
+  color: var(--heading);
+  font-size: 14px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.register-form input:focus,
+.register-form select:focus {
+  border-color: var(--primary);
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(27,122,87,0.12);
+}
+
+.register-form input::placeholder { color: var(--muted); }
+
+/* Select arrow */
+.register-form select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 36px;
+}
+
+.register-form__double-field {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.register-form__double-field > div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.register-form__button {
+  width: 100%;
+  background: var(--gradient-primary);
+  color: white;
+  padding: 13px 18px;
+  border-radius: var(--radius);
+  font-weight: 700;
+  font-size: 14px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(27,122,87,0.25);
+  transition: opacity 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+  margin-top: 2px;
+}
+
+.register-form__button:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 28px rgba(27,122,87,0.3);
+}
+
+.register-form__button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.register-form__helper {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-top: -2px;
+}
+
+.register-form__helper--error {
+  color: var(--danger);
+  font-weight: 500;
+}
+
+@media (max-width: 460px) {
+  .register-form__double-field {
+    grid-template-columns: 1fr;
+  }
+}
