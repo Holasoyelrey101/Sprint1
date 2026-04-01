@@ -1,6 +1,8 @@
 const jsonHeaders = {
   'Content-Type': 'application/json',
-}
+};
+
+const API_URL = import.meta.env.VITE_BACKEND_URL;
 
 function parseRoleToBackend(role) {
   if (!role) return 'agronomo'
@@ -31,16 +33,16 @@ async function parseJsonResponse(response) {
 }
 
 export async function loginUser(credentials) {
-  const response = await fetch('/api/auth/login', {
+  const response = await fetch(`${API_URL}/auth/login`, {
     method: 'POST',
     headers: jsonHeaders,
     body: JSON.stringify({
       email: credentials.email,
       contrasena: credentials.password,
     }),
-  })
+  });
 
-  const data = await parseJsonResponse(response)
+  const data = await parseJsonResponse(response);
 
   return {
     token: data.access_token,
@@ -51,11 +53,11 @@ export async function loginUser(credentials) {
       role: parseRoleFromBackend(data.usuario?.rol),
       backendRole: data.usuario?.rol,
     },
-  }
+  };
 }
 
 export async function registerUser(payload) {
-  const response = await fetch('/api/auth/registro', {
+  const response = await fetch(`${API_URL}/auth/registro`, {
     method: 'POST',
     headers: jsonHeaders,
     body: JSON.stringify({
@@ -65,9 +67,9 @@ export async function registerUser(payload) {
       contrasena: payload.password,
       num_telefono: payload.phone || null,
     }),
-  })
+  });
 
-  const data = await parseJsonResponse(response)
+  const data = await parseJsonResponse(response);
 
   return {
     user: {
@@ -77,5 +79,5 @@ export async function registerUser(payload) {
       role: parseRoleFromBackend(data.rol),
       backendRole: data.rol,
     },
-  }
+  };
 }
