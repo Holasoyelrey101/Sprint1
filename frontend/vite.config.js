@@ -5,7 +5,7 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   preview: {
-    allowedHosts: ['frontend-production-98d34.up.railway.app'],
+    allowedHosts: ['https://sprint1-production-3874.up.railway.app/'],
   },
   server: {
     proxy: {
