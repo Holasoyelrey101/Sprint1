@@ -25,13 +25,15 @@ export async function fetchSupabaseTelemetry() {
   }
 
   const query = new URLSearchParams({
-    select: 'id,humedad,temperatura,ph,voltaje,sensor_id,created_at',
+    // columnas de la tabla `lectura_cultivos`
+    select: 'id,created_at,temperatura,humedad_aire,humedad_suelo',
     order: 'created_at.desc',
-    limit: '12',
+    limit: '50',
   })
 
+  // Consultar la tabla `lecturas_cultivo` en Supabase
   const response = await fetch(
-    `${supabaseUrl}/rest/v1/telemetria?${query.toString()}`,
+    `${supabaseUrl}/rest/v1/lecturas_cultivo?${query.toString()}`,
     {
       headers: {
         apikey: supabaseKey,

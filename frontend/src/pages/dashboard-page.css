@@ -430,7 +430,8 @@
 
 .telemetry-chart-shell {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(180px, 1fr);
+  /* Mantiene el área del gráfico amplia y limita la columna lateral */
+  grid-template-columns: minmax(0, 2fr) minmax(180px, 320px);
   gap: 12px;
   align-items: start;
 }
@@ -458,6 +459,9 @@
   padding: 12px;
   display: grid;
   gap: 10px;
+  /* Limita altura para evitar que la página crezca indefinidamente */
+  max-height: 420px;
+  overflow-y: auto;
 }
 
 .telemetry-chart__summary strong {
@@ -506,7 +510,13 @@
 
 .supabase-card__helper { color: var(--text-light); font-size: 13px; }
 
-.supabase-table-wrapper { overflow-x: auto; border-radius: var(--radius); }
+.supabase-table-wrapper {
+  overflow-x: auto;
+  border-radius: var(--radius);
+  /* Limita la altura de la tabla y añade scroll vertical si hay muchas filas */
+  max-height: 420px;
+  overflow-y: auto;
+}
 
 .supabase-table {
   width: 100%;

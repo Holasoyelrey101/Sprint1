@@ -13,6 +13,9 @@ import { fetchSupabaseTelemetry, isSupabaseConfigured } from '../services/supaba
 import { exportTelemetryToExcel, exportTelemetryToPdf } from '../utils/exportUtils'
 import './dashboard-page.css'
 
+// Polling interval used to refresh Supabase telemetry (ms).
+const SUPABASE_POLL_INTERVAL_MS = 15000
+
 function PanelCard({ title, subtitle, items }) {
   return (
     <article className="panel-card">
@@ -145,32 +148,33 @@ function TelemetryForm({ telemetryData, onChange, onSubmit, isSubmitting, submit
 
       <form className="telemetry-form" onSubmit={onSubmit}>
         <div>
-          <label htmlFor="deveui">
-            <i className="fa-solid fa-tag"></i>
-            DevEUI
+          <label htmlFor="humedad_aire">
+            <i className="fa-solid fa-droplet"></i>
+            Humedad (aire)
           </label>
           <input
-            id="deveui"
-            type="text"
-            value={telemetryData.deveui}
-            onChange={(event) => onChange('deveui', event.target.value)}
-            placeholder="ABC123"
+            id="humedad_aire"
+            type="number"
+            step="0.1"
+            value={telemetryData.humedad_aire}
+            onChange={(event) => onChange('humedad_aire', event.target.value)}
+            placeholder="38.5"
             required
           />
         </div>
 
         <div>
-          <label htmlFor="humedad">
-            <i className="fa-solid fa-droplet"></i>
-            Humedad
+          <label htmlFor="humedad_suelo">
+            <i className="fa-solid fa-water"></i>
+            Humedad (suelo)
           </label>
           <input
-            id="humedad"
+            id="humedad_suelo"
             type="number"
             step="0.1"
-            value={telemetryData.humedad}
-            onChange={(event) => onChange('humedad', event.target.value)}
-            placeholder="38.5"
+            value={telemetryData.humedad_suelo}
+            onChange={(event) => onChange('humedad_suelo', event.target.value)}
+            placeholder="30.0"
             required
           />
         </div>
@@ -191,38 +195,6 @@ function TelemetryForm({ telemetryData, onChange, onSubmit, isSubmitting, submit
           />
         </div>
 
-        <div>
-          <label htmlFor="ph">
-            <i className="fa-solid fa-flask"></i>
-            pH
-          </label>
-          <input
-            id="ph"
-            type="number"
-            step="0.1"
-            value={telemetryData.ph}
-            onChange={(event) => onChange('ph', event.target.value)}
-            placeholder="6.8"
-            required
-          />
-        </div>
-
-        <div>
-          <label htmlFor="voltaje">
-            <i className="fa-solid fa-bolt"></i>
-            Voltaje
-          </label>
-          <input
-            id="voltaje"
-            type="number"
-            step="0.01"
-            value={telemetryData.voltaje}
-            onChange={(event) => onChange('voltaje', event.target.value)}
-            placeholder="3.71"
-            required
-          />
-        </div>
-
         <button className="primary-dashboard-btn telemetry-submit" type="submit" disabled={isSubmitting}>
           <i className={`fa-solid ${isSubmitting ? 'fa-spinner fa-spin' : 'fa-paper-plane'}`}></i>
           {isSubmitting ? 'Enviando...' : 'Enviar muestra'}
@@ -235,47 +207,115 @@ function TelemetryForm({ telemetryData, onChange, onSubmit, isSubmitting, submit
   )
 }
 
-function TelemetryChart({ telemetryHistory, telemetryData, connectionMode }) {
-  const [metric, setMetric] = useState('humedad')
+function TelemetryChart({ telemetryHistory, telemetryData, connectionMode, supabaseTelemetry, supabasePollIntervalMs = 0 }) {
+  const [metric, setMetric] = useState('humedad_aire')
 
   const metricConfig = {
-    humedad: { label: 'Humedad', color: '#2e8b62', unit: '%' },
+    humedad_aire: { label: 'Humedad aire', color: '#2e8b62', unit: '%' },
+    humedad_suelo: { label: 'Humedad suelo', color: '#3a9ad9', unit: '%' },
     temperatura: { label: 'Temperatura', color: '#ef7d32', unit: '°C' },
-    ph: { label: 'pH', color: '#6f56d9', unit: '' },
-    voltaje: { label: 'Voltaje', color: '#2f6fed', unit: 'V' },
+  }
+
+  const toNumber = (v) => {
+    if (v == null) return 0
+    const s = String(v).replace(',', '.')
+    const n = Number(s)
+    return Number.isFinite(n) ? n : 0
   }
 
   const chartPoints = useMemo(() => {
-    if (telemetryHistory.length > 0) {
-      return telemetryHistory
-        .slice(0, 6)
-        .reverse()
-        .map((entry, index) => ({
+    const useSupabase = supabaseTelemetry && supabaseTelemetry.length > 0
+
+    if (useSupabase || telemetryHistory.length > 0) {
+      const source = useSupabase ? supabaseTelemetry.slice(0, 50).reverse() : telemetryHistory.slice(0, 50).reverse()
+
+      return source.map((entry, index) => {
+        let raw
+        let createdAtValue = null
+
+        if (useSupabase) {
+          raw = entry[metric]
+          createdAtValue = entry.created_at || null
+        } else {
+          // fallback: local telemetry uses `humedad` for air humidity
+          if (metric === 'humedad_aire') raw = entry.humedad ?? entry[metric]
+          else raw = entry[metric]
+
+          createdAtValue = entry.createdAtLabel || entry.createdAt || null
+        }
+
+        return {
           label: `M${index + 1}`,
-          value: Number(entry[metric]),
-          source: entry.simulated ? 'Simulado' : 'Real',
-        }))
+          value: toNumber(raw),
+          source: useSupabase ? 'Real' : entry.simulated ? 'Simulado' : 'Formulario',
+          createdAt: createdAtValue,
+        }
+      })
     }
+
+    // preview
+    let previewRaw
+    if (metric === 'humedad_aire') previewRaw = telemetryData.humedad_aire
+    else if (metric === 'humedad_suelo') previewRaw = telemetryData.humedad_suelo
+    else previewRaw = telemetryData[metric]
 
     return [
       {
         label: 'Preview',
-        value: Number(telemetryData[metric] || 0),
+        value: toNumber(previewRaw || 0),
         source: connectionMode === 'simulated' ? 'Simulado' : 'Formulario',
       },
     ]
-  }, [telemetryHistory, telemetryData, metric, connectionMode])
+  }, [telemetryHistory, telemetryData, metric, connectionMode, supabaseTelemetry])
 
-  const maxValue = Math.max(...chartPoints.map((point) => point.value), 1)
   const svgWidth = 520
   const svgHeight = 220
-  const padding = 24
+  // Increase left padding so axis labels don't get clipped
+  const padding = 44
   const stepX = chartPoints.length > 1 ? (svgWidth - padding * 2) / (chartPoints.length - 1) : 0
+
+  const values = chartPoints.map((p) => p.value)
+  let minValue = values.length > 0 ? Math.min(...values) : 0
+  let maxValue = values.length > 0 ? Math.max(...values) : 1
+  if (!Number.isFinite(minValue)) minValue = 0
+  if (!Number.isFinite(maxValue)) maxValue = 1
+
+  // Add a small visual padding around the min/max. If all values equal, expand by 10% or 1.
+  const rawRange = maxValue - minValue
+  if (rawRange === 0) {
+    const pad = Math.abs(maxValue) * 0.1 || 1
+    minValue = minValue - pad
+    maxValue = maxValue + pad
+  } else {
+    const pad = rawRange * 0.1
+    minValue = minValue - pad
+    maxValue = maxValue + pad
+  }
+
+  const ticksCount = 5
+  const valueRange = Math.max(maxValue - minValue, 1e-6)
+  const tickStep = valueRange / (ticksCount - 1)
+
+  const formatValue = (val) => {
+    const unit = metricConfig[metric].unit || ''
+    // Temperature & humidity: one decimal for clarity
+    if (unit.includes('°')) return `${Number(val).toFixed(1)}${unit}`
+    if (unit === '%') return `${Number(val).toFixed(1)}${unit}`
+    return `${val}${unit}`
+  }
+
+  const formatDate = (d) => {
+    if (!d) return ''
+    const parsed = Date.parse(d)
+    return Number.isFinite(parsed) ? new Date(d).toLocaleString() : String(d)
+  }
+
+  const pollSeconds = supabasePollIntervalMs && supabasePollIntervalMs > 0 ? Math.round(supabasePollIntervalMs / 1000) : null
 
   const pointsAttribute = chartPoints
     .map((point, index) => {
       const x = padding + stepX * index
-      const y = svgHeight - padding - (point.value / maxValue) * (svgHeight - padding * 2)
+      const y = svgHeight - padding - ((point.value - minValue) / valueRange) * (svgHeight - padding * 2)
       return `${x},${y}`
     })
     .join(' ')
@@ -286,7 +326,7 @@ function TelemetryChart({ telemetryHistory, telemetryData, connectionMode }) {
         <div>
           <h3>Gráfico dinámico de telemetría</h3>
           <span>
-            Cambia al enviar muestras. Funciona tanto en modo real como en modo simulado.
+            El gráfico se actualiza al recibir nuevas muestras{pollSeconds ? ` (cada ${pollSeconds} segundos)` : ''}. Disponible en los modos Automático y Telemetría manual.
           </span>
         </div>
       </div>
@@ -309,6 +349,20 @@ function TelemetryChart({ telemetryHistory, telemetryData, connectionMode }) {
           <line x1={padding} y1={svgHeight - padding} x2={svgWidth - padding} y2={svgHeight - padding} className="telemetry-chart__axis" />
           <line x1={padding} y1={padding} x2={padding} y2={svgHeight - padding} className="telemetry-chart__axis" />
 
+          {/* Y axis ticks and labels */}
+          {Array.from({ length: ticksCount }).map((_, i) => {
+            const tickValue = minValue + tickStep * i
+            const y = svgHeight - padding - ((tickValue - minValue) / valueRange) * (svgHeight - padding * 2)
+            return (
+              <g key={`tick-${i}`}>
+                <line x1={padding - 6} y1={y} x2={padding} y2={y} stroke="#cbd5e1" strokeWidth="1" />
+                    <text x={padding - 12} y={y + 4} textAnchor="end" fontSize="11" fill="#6b7280">
+                      {formatValue(tickValue)}
+                    </text>
+              </g>
+            )
+          })}
+
           <polyline
             fill="none"
             stroke={metricConfig[metric].color}
@@ -318,19 +372,36 @@ function TelemetryChart({ telemetryHistory, telemetryData, connectionMode }) {
             points={pointsAttribute}
           />
 
-          {chartPoints.map((point, index) => {
-            const x = padding + stepX * index
-            const y = svgHeight - padding - (point.value / maxValue) * (svgHeight - padding * 2)
+          {(() => {
+            const maxLabels = 12
+            const labelInterval = chartPoints.length > maxLabels ? Math.ceil(chartPoints.length / maxLabels) : 1
 
-            return (
-              <g key={`${point.label}-${index}`}>
-                <circle cx={x} cy={y} r="5" fill={metricConfig[metric].color} />
-                <text x={x} y={svgHeight - 8} textAnchor="middle" className="telemetry-chart__label">
-                  {point.label}
-                </text>
-              </g>
-            )
-          })}
+            return chartPoints.map((point, index) => {
+              const x = padding + stepX * index
+              const y = svgHeight - padding - ((point.value - minValue) / valueRange) * (svgHeight - padding * 2)
+              const displayLabel = index % labelInterval === 0 ? point.label : ''
+
+              const formatDate = (d) => {
+                if (!d) return ''
+                const parsed = Date.parse(d)
+                return Number.isFinite(parsed) ? new Date(d).toLocaleString() : String(d)
+              }
+
+              const tooltip = `${formatValue(point.value)}${point.createdAt ? ' • ' + formatDate(point.createdAt) : ''}`
+
+              return (
+                <g key={`${point.label}-${index}`}>
+                  <circle cx={x} cy={y} r="5" fill={metricConfig[metric].color} />
+                  <title>{tooltip}</title>
+                  {displayLabel ? (
+                    <text x={x} y={svgHeight - 8} textAnchor="middle" className="telemetry-chart__label">
+                      {displayLabel}
+                    </text>
+                  ) : null}
+                </g>
+              )
+            })
+          })()}
         </svg>
 
         <div className="telemetry-chart__summary">
@@ -338,18 +409,19 @@ function TelemetryChart({ telemetryHistory, telemetryData, connectionMode }) {
             Métrica actual: {metricConfig[metric].label}
           </strong>
           <p>
-            Valor más alto mostrado: {maxValue}
-            {metricConfig[metric].unit}
+            Valor más alto mostrado: {formatValue(maxValue)}
           </p>
           <ul className="telemetry-chart__legend">
             {chartPoints.map((point, index) => (
               <li key={`${point.source}-${index}`}>
                 <span>{point.label}</span>
                 <strong>
-                  {point.value}
-                  {metricConfig[metric].unit}
+                  {formatValue(point.value)}
                 </strong>
-                <small>{point.source}</small>
+                <small>
+                  {point.source}
+                  {point.createdAt ? ' · ' + formatDate(point.createdAt) : ''}
+                </small>
               </li>
             ))}
           </ul>
@@ -389,28 +461,28 @@ function SupabaseDataCard({ supabaseTelemetry, isLoading, loadError, isConfigure
               <thead>
                 <tr>
                   <th>ID</th>
-                  <th>Humedad</th>
+                  <th>Fecha</th>
+                  <th>Humedad aire</th>
+                  <th>Humedad suelo</th>
                   <th>Temperatura</th>
-                  <th>pH</th>
-                  <th>Voltaje</th>
                 </tr>
               </thead>
               <tbody>
-                {supabaseTelemetry.slice(0, 6).map((row, index) => (
+                {supabaseTelemetry.slice(0, 50).map((row, index) => (
                   <tr key={row.id ?? index}>
                     <td>{row.id ?? '--'}</td>
-                    <td>{row.humedad ?? '--'}</td>
+                    <td>{row.created_at ? new Date(row.created_at).toLocaleString() : '--'}</td>
+                    <td>{row.humedad_aire ?? '--'}</td>
+                    <td>{row.humedad_suelo ?? '--'}</td>
                     <td>{row.temperatura ?? '--'}</td>
-                    <td>{row.ph ?? '--'}</td>
-                    <td>{row.voltaje ?? '--'}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         ) : (
-          <p className="supabase-card__helper">
-            La conexión está lista, pero no se encontraron registros visibles en la tabla `telemetria`.
+            <p className="supabase-card__helper">
+            La conexión está lista, pero no se encontraron registros visibles en la tabla `lectura_cultivos`.
           </p>
         )
       ) : null}
@@ -427,7 +499,7 @@ function ExportActions({ hasData, onExportPdf, onExportExcel, exportMessage }) {
             <i className="fa-solid fa-download"></i>
             Exportar datos
           </h3>
-          <span>Genera un respaldo rápido de las muestras enviadas desde esta demo.</span>
+          <span>Genera un respaldo rápido de las muestras disponibles en esta vista.</span>
         </div>
       </div>
 
@@ -445,9 +517,7 @@ function ExportActions({ hasData, onExportPdf, onExportExcel, exportMessage }) {
       <p className="export-card__helper">
         <i className="fa-solid fa-circle-info"></i>
         {' '}
-        {hasData
-          ? 'Puedes exportar el historial acumulado de muestras enviadas en esta sesión.'
-          : 'Primero envía al menos una muestra para habilitar la exportación.'}
+        {exportMessage || (hasData ? 'Exporta los registros visibles (hasta 50 últimos).' : 'No hay registros para exportar.')}
       </p>
 
       {exportMessage ? <p className="feedback-message feedback-message--success"><i className="fa-solid fa-circle-check"></i> {exportMessage}</p> : null}
@@ -461,7 +531,7 @@ function ConnectionModeSelector({ connectionMode, onModeChange, onRefresh, isRef
       <div className="panel-header connection-mode-card__header">
         <div>
           <h3>Modo de conexión</h3>
-          <span>Para demo, usa Simulado. Real y Automático están disponibles si conectas backend.</span>
+          <span>Para demo, selecciona Automático. Modos disponibles: Automático y Telemetría manual.</span>
         </div>
       </div>
 
@@ -474,22 +544,15 @@ function ConnectionModeSelector({ connectionMode, onModeChange, onRefresh, isRef
         >
           Automático
         </button>
-        <button
-          type="button"
-          className={`mode-chip ${connectionMode === 'real' ? 'active' : ''}`}
-          onClick={() => onModeChange('real')}
-          disabled={isRefreshing}
-        >
-          Real
-        </button>
-        <button
-          type="button"
-          className={`mode-chip ${connectionMode === 'simulated' ? 'active' : ''}`}
-          onClick={() => onModeChange('simulated')}
-          disabled={isRefreshing}
-        >
-          Simulado
-        </button>
+            <button
+              type="button"
+              className={`mode-chip ${connectionMode === 'manual' ? 'active' : ''}`}
+              onClick={() => onModeChange('manual')}
+              disabled={isRefreshing}
+            >
+              Telemetría manual
+            </button>
+        
 
         <button type="button" className="secondary-dashboard-btn" onClick={onRefresh} disabled={isRefreshing}>
           <i className={`fa-solid ${isRefreshing ? 'fa-spinner fa-spin' : 'fa-rotate-right'}`}></i>
@@ -541,7 +604,15 @@ function SummarySnapshot({ currentSectionLabel, latestTelemetry, telemetryHistor
           </article>
           <article>
             <span>Modo</span>
-            <strong>{connectionMode === 'auto' ? 'Auto' : connectionMode === 'real' ? 'Real' : 'Simulado'}</strong>
+            <strong>
+              {connectionMode === 'auto'
+                ? 'Auto'
+                : connectionMode === 'manual'
+                  ? 'Telemetría manual'
+                  : connectionMode === 'real'
+                    ? 'Real'
+                    : 'Simulado'}
+            </strong>
           </article>
         </div>
       </article>
@@ -556,7 +627,16 @@ function SummarySnapshot({ currentSectionLabel, latestTelemetry, telemetryHistor
             <strong>{backendLabel}</strong>
           </li>
           <li>
-            Modo conexión: <strong>{connectionMode === 'auto' ? 'Auto' : connectionMode === 'real' ? 'Real' : 'Simulado'}</strong>
+            Modo conexión:{' '}
+            <strong>
+              {connectionMode === 'auto'
+                ? 'Auto'
+                : connectionMode === 'manual'
+                  ? 'Telemetría manual'
+                  : connectionMode === 'real'
+                    ? 'Real'
+                    : 'Simulado'}
+            </strong>
           </li>
           <li>
             Última telemetría:{' '}
@@ -595,6 +675,7 @@ function SectionContent({
   onRefreshBackendStatus,
   isRefreshingStatus,
 }) {
+  const exportHasData = connectionMode === 'auto' ? (supabaseTelemetry && supabaseTelemetry.length > 0) : telemetryHistory.length > 0
   // Sección de Telemetría
   if (activeSection === 'telemetry') {
     if (isRefreshingStatus) {
@@ -624,17 +705,19 @@ function SectionContent({
             isRefreshing={isRefreshingStatus}
           />
 
-          <TelemetryForm
-            telemetryData={telemetryData}
-            onChange={onTelemetryChange}
-            onSubmit={onTelemetrySubmit}
-            isSubmitting={isSubmitting}
-            submitError={submitError}
-            submitSuccess={submitSuccess}
-          />
+          {connectionMode === 'manual' ? (
+            <TelemetryForm
+              telemetryData={telemetryData}
+              onChange={onTelemetryChange}
+              onSubmit={onTelemetrySubmit}
+              isSubmitting={isSubmitting}
+              submitError={submitError}
+              submitSuccess={submitSuccess}
+            />
+          ) : null}
 
           <ExportActions
-            hasData={telemetryHistory.length > 0}
+            hasData={exportHasData}
             onExportPdf={onExportPdf}
             onExportExcel={onExportExcel}
             exportMessage={exportMessage}
@@ -646,6 +729,8 @@ function SectionContent({
             telemetryHistory={telemetryHistory}
             telemetryData={telemetryData}
             connectionMode={connectionMode}
+            supabaseTelemetry={supabaseTelemetry}
+            supabasePollIntervalMs={SUPABASE_POLL_INTERVAL_MS}
           />
 
           <SupabaseDataCard
@@ -668,19 +753,23 @@ function SectionContent({
       <div className="workspace-stack">
         {hasSensors ? (
           <>
-            <TelemetryForm
-              telemetryData={telemetryData}
-              onChange={onTelemetryChange}
-              onSubmit={onTelemetrySubmit}
-              isSubmitting={isSubmitting}
-              submitError={submitError}
-              submitSuccess={submitSuccess}
-            />
+            {connectionMode === 'manual' ? (
+              <TelemetryForm
+                telemetryData={telemetryData}
+                onChange={onTelemetryChange}
+                onSubmit={onTelemetrySubmit}
+                isSubmitting={isSubmitting}
+                submitError={submitError}
+                submitSuccess={submitSuccess}
+              />
+            ) : null}
 
             <TelemetryChart
               telemetryHistory={telemetryHistory}
               telemetryData={telemetryData}
               connectionMode={connectionMode}
+              supabaseTelemetry={supabaseTelemetry}
+              supabasePollIntervalMs={SUPABASE_POLL_INTERVAL_MS}
             />
 
             <SupabaseDataCard
@@ -725,21 +814,25 @@ function SectionContent({
   return (
     <div className="workspace-stack">
       <QuickActions onAction={onAction} />
-      <TelemetryForm
-        telemetryData={telemetryData}
-        onChange={onTelemetryChange}
-        onSubmit={onTelemetrySubmit}
-        isSubmitting={isSubmitting}
-        submitError={submitError}
-        submitSuccess={submitSuccess}
-      />
+      {connectionMode === 'manual' ? (
+        <TelemetryForm
+          telemetryData={telemetryData}
+          onChange={onTelemetryChange}
+          onSubmit={onTelemetrySubmit}
+          isSubmitting={isSubmitting}
+          submitError={submitError}
+          submitSuccess={submitSuccess}
+        />
+      ) : null}
       <TelemetryChart
         telemetryHistory={telemetryHistory}
         telemetryData={telemetryData}
         connectionMode={connectionMode}
+        supabaseTelemetry={supabaseTelemetry}
+        supabasePollIntervalMs={SUPABASE_POLL_INTERVAL_MS}
       />
       <ExportActions
-        hasData={telemetryHistory.length > 0}
+        hasData={exportHasData}
         onExportPdf={onExportPdf}
         onExportExcel={onExportExcel}
         exportMessage={exportMessage}
@@ -822,10 +915,9 @@ export function DashboardPage({ user, onLogout, theme, onToggleTheme }) {
   })
   const [telemetryData, setTelemetryData] = useState({
     deveui: 'ABC123',
-    humedad: '38.5',
     temperatura: '22.4',
-    ph: '6.8',
-    voltaje: '3.71',
+    humedad_aire: '38.5',
+    humedad_suelo: '30.0',
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
@@ -833,7 +925,7 @@ export function DashboardPage({ user, onLogout, theme, onToggleTheme }) {
   const [latestTelemetry, setLatestTelemetry] = useState(null)
   const [telemetryHistory, setTelemetryHistory] = useState([])
   const [exportMessage, setExportMessage] = useState('')
-  const [connectionMode, setConnectionMode] = useState('simulated')
+  const [connectionMode, setConnectionMode] = useState('auto')
   const [supabaseTelemetry, setSupabaseTelemetry] = useState([])
   const [supabaseLoading, setSupabaseLoading] = useState(false)
   const [supabaseError, setSupabaseError] = useState('')
@@ -841,8 +933,11 @@ export function DashboardPage({ user, onLogout, theme, onToggleTheme }) {
   const [isRefreshingStatus, setIsRefreshingStatus] = useState(false)
   const [lastBackendCheckLabel, setLastBackendCheckLabel] = useState('')
   const [lastSupabaseSyncLabel, setLastSupabaseSyncLabel] = useState('')
+  
 
   const nowLabel = () => new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })
+
+  const exportHasData = connectionMode === 'auto' ? (supabaseTelemetry && supabaseTelemetry.length > 0) : telemetryHistory.length > 0
 
   const loadSupabaseTelemetry = async () => {
     if (!supabaseConfigured) return
@@ -914,6 +1009,17 @@ export function DashboardPage({ user, onLogout, theme, onToggleTheme }) {
     }
   }, [])
 
+  // Auto-refresh Supabase data via polling using SUPABASE_POLL_INTERVAL_MS.
+  useEffect(() => {
+    if (!supabaseConfigured) return
+
+    const id = setInterval(() => {
+      loadSupabaseTelemetry()
+    }, SUPABASE_POLL_INTERVAL_MS)
+
+    return () => clearInterval(id)
+  }, [supabaseConfigured])
+
   const currentSectionLabel = useMemo(
     () => dashboardSections.find((section) => section.id === activeSection)?.label ?? 'Resumen general',
     [activeSection],
@@ -949,13 +1055,22 @@ export function DashboardPage({ user, onLogout, theme, onToggleTheme }) {
       },
       {
         label: 'Modo activo',
-        value: connectionMode === 'auto' ? 'Auto' : connectionMode === 'real' ? 'Real' : 'Simulado',
+        value:
+          connectionMode === 'auto'
+            ? 'Auto'
+            : connectionMode === 'manual'
+              ? 'Telemetría manual'
+              : connectionMode === 'real'
+                ? 'Real'
+                : 'Simulado',
         detail:
           connectionMode === 'auto'
             ? 'Intenta backend y cae a simulación si falla.'
-            : connectionMode === 'real'
-              ? 'Usa exclusivamente el backend FastAPI.'
-              : 'Fuerza respuestas demo locales.',
+            : connectionMode === 'manual'
+              ? 'Permite enviar telemetría desde el formulario manual.'
+              : connectionMode === 'real'
+                ? 'Usa exclusivamente el backend FastAPI.'
+                : 'Fuerza respuestas demo locales.',
       },
       {
         label: 'Monitoreo',
@@ -1024,12 +1139,25 @@ export function DashboardPage({ user, onLogout, theme, onToggleTheme }) {
     setSubmitSuccess('')
 
     try {
-      const response = await sendTelemetry(telemetryData, connectionMode)
+      const payloadToSend = {
+        deveui: telemetryData.deveui ?? 'ABC123',
+        humedad: telemetryData.humedad ?? telemetryData.humedad_aire ?? null,
+        temperatura: telemetryData.temperatura ?? null,
+        ph: telemetryData.ph ?? null,
+        voltaje: telemetryData.voltaje ?? null,
+        humedad_aire: telemetryData.humedad_aire ?? null,
+        humedad_suelo: telemetryData.humedad_suelo ?? null,
+      }
+
+      const response = await sendTelemetry(payloadToSend, connectionMode)
       const registered = response?.data?.[0] ?? null
       const createdAtLabel = new Date().toLocaleString('es-CL')
 
       const telemetryEntry = {
+        // keep incoming shape (includes humedad_aire/humedad_suelo when provided)
         ...telemetryData,
+        // ensure legacy `humedad` exists for older views/exports
+        humedad: telemetryData.humedad ?? telemetryData.humedad_aire ?? telemetryData.humedad_suelo ?? null,
         sensorId: response?.sensor_id ?? '--',
         telemetryId: registered?.id ?? null,
         simulated: response?.simulated === true,
@@ -1049,7 +1177,8 @@ export function DashboardPage({ user, onLogout, theme, onToggleTheme }) {
   }
 
   const handleExportPdf = () => {
-    const exported = exportTelemetryToPdf(telemetryHistory)
+    const rowsToExport = connectionMode === 'auto' ? (supabaseTelemetry.slice(0, 50) || []) : telemetryHistory.slice(0, 50)
+    const exported = exportTelemetryToPdf(rowsToExport)
     setExportMessage(
       exported
         ? 'Se abrió la vista de impresión para guardar el reporte en PDF.'
@@ -1058,7 +1187,8 @@ export function DashboardPage({ user, onLogout, theme, onToggleTheme }) {
   }
 
   const handleExportExcel = () => {
-    const exported = exportTelemetryToExcel(telemetryHistory)
+    const rowsToExport = connectionMode === 'auto' ? (supabaseTelemetry.slice(0, 50) || []) : telemetryHistory.slice(0, 50)
+    const exported = exportTelemetryToExcel(rowsToExport)
     setExportMessage(
       exported
         ? 'Se descargó un archivo Excel con el historial de telemetría.'
