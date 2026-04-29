@@ -575,7 +575,7 @@ function TelemetryLoadingState() {
   )
 }
 
-function SummarySnapshot({ currentSectionLabel, latestTelemetry, telemetryHistory, backendStatus, connectionMode }) {
+function SummarySnapshot({ currentSectionLabel, latestTelemetry, telemetryHistory, backendStatus, connectionMode, supabaseTelemetry }) {
   const backendLabel = backendStatus.loading
     ? 'Verificando'
     : backendStatus.available
@@ -583,6 +583,12 @@ function SummarySnapshot({ currentSectionLabel, latestTelemetry, telemetryHistor
       : backendStatus.simulated
         ? 'Simulado'
         : 'Offline'
+
+  // Contar muestras en las últimas 24 horas (supabase + locales)
+  const sinceDate = new Date(Date.now() - 24 * 3600 * 1000)
+  const supabaseCount = (supabaseTelemetry || []).filter((r) => r && r.created_at && new Date(r.created_at) >= sinceDate).length
+  const localCount = (telemetryHistory || []).filter((r) => r && r.createdAt && new Date(r.createdAt) >= sinceDate).length
+  const totalLast24 = supabaseCount + localCount
 
   return (
     <section className="summary-snapshot-grid">
@@ -599,8 +605,8 @@ function SummarySnapshot({ currentSectionLabel, latestTelemetry, telemetryHistor
             <strong>{currentSectionLabel}</strong>
           </article>
           <article>
-            <span>Muestras registradas</span>
-            <strong>{telemetryHistory.length}</strong>
+            <span>Muestras registradas (24h)</span>
+            <strong>{totalLast24}</strong>
           </article>
           <article>
             <span>Modo</span>
@@ -923,7 +929,14 @@ export function DashboardPage({ user, onLogout, theme, onToggleTheme }) {
   const [submitError, setSubmitError] = useState('')
   const [submitSuccess, setSubmitSuccess] = useState('')
   const [latestTelemetry, setLatestTelemetry] = useState(null)
-  const [telemetryHistory, setTelemetryHistory] = useState([])
+  const [telemetryHistory, setTelemetryHistory] = useState(() => {
+    try {
+      const raw = localStorage.getItem('telemetryHistory')
+      return raw ? JSON.parse(raw) : []
+    } catch (e) {
+      return []
+    }
+  })
   const [exportMessage, setExportMessage] = useState('')
   const [connectionMode, setConnectionMode] = useState('auto')
   const [supabaseTelemetry, setSupabaseTelemetry] = useState([])
@@ -936,6 +949,15 @@ export function DashboardPage({ user, onLogout, theme, onToggleTheme }) {
   
 
   const nowLabel = () => new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })
+
+  // Persistir historial de muestras local en localStorage para que no se pierda al recargar.
+  useEffect(() => {
+    try {
+      localStorage.setItem('telemetryHistory', JSON.stringify(telemetryHistory))
+    } catch (e) {
+      // Ignorar errores de almacenamiento
+    }
+  }, [telemetryHistory])
 
   const exportHasData = connectionMode === 'auto' ? (supabaseTelemetry && supabaseTelemetry.length > 0) : telemetryHistory.length > 0
 
@@ -1072,13 +1094,21 @@ export function DashboardPage({ user, onLogout, theme, onToggleTheme }) {
                 ? 'Usa exclusivamente el backend FastAPI.'
                 : 'Fuerza respuestas demo locales.',
       },
-      {
-        label: 'Monitoreo',
-        value: `${telemetryHistory.length} muestras`,
-        detail: latestTelemetry
-          ? `Último envío: ${latestTelemetry.createdAtLabel}${latestTelemetry.simulated ? ' (simulado)' : ' (real)'}`
-          : 'Aún no hay muestras enviadas en esta sesión.',
-      },
+      // Mostrar número de muestras en las últimas 24 horas (sumando Supabase + entradas locales)
+      (() => {
+        const sinceDate = new Date(Date.now() - 24 * 3600 * 1000)
+        const supabaseCount = (supabaseTelemetry || []).filter((r) => r && r.created_at && new Date(r.created_at) >= sinceDate).length
+        const localCount = (telemetryHistory || []).filter((r) => r && r.createdAt && new Date(r.createdAt) >= sinceDate).length
+        const total = supabaseCount + localCount
+
+        return {
+          label: 'Monitoreo',
+          value: `${total} muestras (24h)`,
+          detail: latestTelemetry
+            ? `Último envío: ${latestTelemetry.createdAtLabel}${latestTelemetry.simulated ? ' (simulado)' : ' (real)'}`
+            : 'Aún no hay muestras registradas en las últimas 24 horas.',
+        }
+      })(),
       {
         label: 'Últimos chequeos',
         value: lastBackendCheckLabel || '--:--',
@@ -1162,6 +1192,8 @@ export function DashboardPage({ user, onLogout, theme, onToggleTheme }) {
         telemetryId: registered?.id ?? null,
         simulated: response?.simulated === true,
         createdAtLabel,
+        // ISO timestamp for consistent filtering (24h window)
+        createdAt: new Date().toISOString(),
       }
 
       setLatestTelemetry(telemetryEntry)
@@ -1272,6 +1304,7 @@ export function DashboardPage({ user, onLogout, theme, onToggleTheme }) {
                   telemetryHistory={telemetryHistory}
                   backendStatus={backendStatus}
                   connectionMode={connectionMode}
+                  supabaseTelemetry={supabaseTelemetry}
                 />
               </div>
             </div>

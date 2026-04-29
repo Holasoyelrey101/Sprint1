@@ -69,6 +69,15 @@ export async function sendTelemetry(payload, forceMode = 'auto') {
     voltaje: Number(payload.voltaje),
   }
 
+  // Preserve explicit agricultural fields when present so backend can write them
+  // into `lecturas_cultivo` (humedad_aire / humedad_suelo).
+  if (payload.humedad_aire !== undefined && payload.humedad_aire !== null) {
+    normalizedPayload.humedad_aire = Number(payload.humedad_aire)
+  }
+  if (payload.humedad_suelo !== undefined && payload.humedad_suelo !== null) {
+    normalizedPayload.humedad_suelo = Number(payload.humedad_suelo)
+  }
+
   if (forceMode === 'simulated') {
     await wait(400)
 
