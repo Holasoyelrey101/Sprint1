@@ -57,10 +57,16 @@ def insert_telemetry(data):
 
     sensor_id = sensor["id"]
 
+    # Compute humidity values: prefer explicit humedad_aire/humedad_suelo if provided,
+    # otherwise fall back to legacy `humedad` value.
+    hum_aire = getattr(data, 'humedad_aire', None) if hasattr(data, 'humedad_aire') else None
+    hum_suelo = getattr(data, 'humedad_suelo', None) if hasattr(data, 'humedad_suelo') else None
+    humedad_for_telemetria = data.humedad if getattr(data, 'humedad', None) is not None else (hum_aire if hum_aire is not None else None)
+
     response = supabase.table("telemetria").insert(
         {
             "sensor_id": sensor_id,
-            "humedad": data.humedad,
+            "humedad": humedad_for_telemetria,
             "temperatura": data.temperatura,
             "ph": data.ph,
             "voltaje": data.voltaje,
@@ -81,6 +87,28 @@ def insert_telemetry(data):
         check_umbrales(sensor, threshold_payload)
     except Exception:
         # Si los umbrales fallan no rompemos la inserción principal de telemetría.
+        pass
+
+    # Also insert a simplified agricultural reading into `lecturas_cultivo` so the frontend
+    # (which reads that table) sees the latest samples. This is best-effort: failures
+    # here won't break the main telemetry insertion.
+    try:
+        lecturas_payload = {}
+        if data.temperatura is not None:
+            lecturas_payload['temperatura'] = data.temperatura
+        # prefer explicit humedad_aire / humedad_suelo when present
+        if hum_aire is not None:
+            lecturas_payload['humedad_aire'] = hum_aire
+        elif data.humedad is not None:
+            lecturas_payload['humedad_aire'] = data.humedad
+        if hum_suelo is not None:
+            lecturas_payload['humedad_suelo'] = hum_suelo
+
+        if lecturas_payload:
+            # Insert into lecturas_cultivo (Supabase will set created_at if configured)
+            supabase.table('lecturas_cultivo').insert(lecturas_payload).execute()
+    except Exception:
+        # Don't fail the whole request if this extra insert doesn't work.
         pass
 
     return {
